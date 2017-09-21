@@ -1,0 +1,4 @@
+# tmp contains docker volume mounted data
+tmp
+# ignore 'beats' for the case when you want to use custom filebeat module using https://github.com/ryuheechul/beats/tree/nginx-request-body
+beats

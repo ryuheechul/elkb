@@ -1,0 +1,56 @@
+version: '2'
+services:
+  echo:
+    image: kennship/http-echo
+    ports:
+      - '3000'
+  nginx: 
+    image: nginx
+    ports:
+      - '7070:8080'
+    volumes:
+      - ./tmp/nginx/log:/var/log/nginx
+      - ./nginx.conf:/etc/nginx/conf.d/nginx-conf.conf:ro
+    links:
+      - echo
+  filebeat:
+    # *1+*2+*3: an attempt to use https://github.com/ryuheechul/beats/tree/nginx-request-body/filebeat/module/nginx-request-body as custome module. but failed, so use logstash instaed 
+    image: docker.elastic.co/beats/filebeat:5.6.1
+    volumes:
+      - ./tmp/nginx/log:/var/log/nginx:ro
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml
+      #*1 - ./beats/filebeat/module/nginx-request-body:/usr/share/filebeat/module/nginx-request-body
+    links:
+      - logstash
+      #*2 - elasticsearch
+    #*3  command: bash -c "sleep 20 && filebeat -e -d '*'"
+    command: filebeat -e # -d '*' # uncomment for debugging
+  logstash:
+    image: docker.elastic.co/logstash/logstash:5.6.1
+    volumes:
+      - ./logstash.yml:/usr/share/logstash/config/settings/logstash.yml
+      - ./pipeline.conf:/usr/share/logstash/pipeline/pipeline.conf
+      - ./patterns:/usr/share/logstash/pipeline/patterns
+    ports:
+      - '5044'
+    links:
+      - elasticsearch
+    # command: bash -c "sleep 20 && /usr/local/bin/docker-entrypoint --debug"
+    command: bash -c "sleep 20 && /usr/local/bin/docker-entrypoint"
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:5.6.1
+    ports:
+      - '9200:9200'
+      - '9300:9300'
+    volumes:
+      - ./tmp/elasticsearch/data:/usr/share/elasticsearch/data
+    environment:
+      - discovery.type=single-node
+  kibana:
+    image: docker.elastic.co/kibana/kibana:5.6.1
+    ports:
+      - '8080:5601'
+    volumes:
+      - ./kibana.yml:/usr/share/kibana/config/kibana.yml
+    links:
+      - elasticsearch
